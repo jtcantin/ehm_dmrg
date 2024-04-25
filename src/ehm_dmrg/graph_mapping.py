@@ -107,11 +107,11 @@ def get_feature_vector(tbt_tensor, threshold=1e-8) -> dict:
 
     ############
 
-    start = time.time()  #
+    start = time.process_time_ns()  #
     specA = nx.adjacency_spectrum(G)
-    stop = time.time()  #
-    specA_calc_time = stop - start  #
-    start = time.time()  #
+    stop = time.process_time_ns()  #
+    specA_calc_time_s = (stop - start) / 1e9  #
+    start = time.process_time_ns()  #
     specA_min = np.min(specA)
     specA_Q2 = np.median(specA)
     specA_max = np.max(specA)
@@ -119,14 +119,14 @@ def get_feature_vector(tbt_tensor, threshold=1e-8) -> dict:
     specA_std = np.std(specA)
     specA_coeff_variation = specA_std.real / specA_mean.real  #
     specA_power_spectral_entropy = power_spectral_entropy(specA)
-    stop = time.time()  #
-    specA_stat_calc_time = stop - start  #
+    stop = time.process_time_ns()  #
+    specA_stat_calc_time_s = (stop - start) / 1e9  #
 
-    start = time.time()  #
+    start = time.process_time_ns()  #
     specL = nx.laplacian_spectrum(G)
-    stop = time.time()  #
-    specL_calc_time = stop - start  #
-    start = time.time()  #
+    stop = time.process_time_ns()  #
+    specL_calc_time_s = (stop - start) / 1e9  #
+    start = time.process_time_ns()  #
     specL_min = np.min(specL)
     specL_Q2 = np.median(specL)
     specL_max = np.max(specL)
@@ -134,15 +134,15 @@ def get_feature_vector(tbt_tensor, threshold=1e-8) -> dict:
     specL_std = np.std(specL)
     specL_coeff_variation = specL_std.real / specL_mean.real  #
     specL_power_spectral_entropy = power_spectral_entropy(specL)
-    stop = time.time()  #
-    specL_stat_calc_time = stop - start  #
+    stop = time.process_time_ns()  #
+    specL_stat_calc_time_s = (stop - start) / 1e9  #
 
-    start = time.time()  #
+    start = time.process_time_ns()  #
     R = resistance_matrix(G)
     specR = np.linalg.eigvals(R)
-    stop = time.time()  #
-    specR_calc_time = stop - start  #
-    start = time.time()  #
+    stop = time.process_time_ns()  #
+    specR_calc_time_s = (stop - start) / 1e9  #
+    start = time.process_time_ns()  #
     specR_min = np.min(specR)
     specR_Q2 = np.median(specR)
     specR_max = np.max(specR)
@@ -150,8 +150,8 @@ def get_feature_vector(tbt_tensor, threshold=1e-8) -> dict:
     specR_std = np.std(specR)
     specR_coeff_variation = specR_std.real / specR_mean.real  #
     specR_power_spectral_entropy = power_spectral_entropy(specR)
-    stop = time.time()  #
-    specR_stat_calc_time = stop - start  #
+    stop = time.process_time_ns()  #
+    specR_stat_calc_time_s = (stop - start) / 1e9  #
 
     featureVec = {
         # General graph features
@@ -174,8 +174,8 @@ def get_feature_vector(tbt_tensor, threshold=1e-8) -> dict:
         "specA_std": specA_std.real,
         "specA_coeff_variation": specA_coeff_variation,
         "specA_power_spectral_entropy": specA_power_spectral_entropy,
-        "specA_calc_time": specA_calc_time,
-        "specA_stat_calc_time": specA_stat_calc_time,
+        "specA_calc_time_s": specA_calc_time_s,
+        "specA_stat_calc_time_s": specA_stat_calc_time_s,
         # Laplacian matrix spectrum features
         "specL_min": specL_min.real,
         "specL_Q2": specL_Q2.real,
@@ -184,8 +184,8 @@ def get_feature_vector(tbt_tensor, threshold=1e-8) -> dict:
         "specL_std": specL_std.real,
         "specL_coeff_variation": specL_coeff_variation,
         "specL_power_spectral_entropy": specL_power_spectral_entropy,
-        "specL_calc_time": specL_calc_time,
-        "specL_stat_calc_time": specL_stat_calc_time,
+        "specL_calc_time_s": specL_calc_time_s,
+        "specL_stat_calc_time_s": specL_stat_calc_time_s,
         # Resistance matrix spectrum features
         "specR_min": specR_min.real,
         "specR_Q2": specR_Q2.real,
@@ -194,8 +194,8 @@ def get_feature_vector(tbt_tensor, threshold=1e-8) -> dict:
         "specR_std": specR_std.real,
         "specR_coeff_variation": specR_coeff_variation,
         "specR_power_spectral_entropy": specR_power_spectral_entropy,
-        "specR_calc_time": specR_calc_time,
-        "specR_stat_calc_time": specR_stat_calc_time,
+        "specR_calc_time_s": specR_calc_time_s,
+        "specR_stat_calc_time_s": specR_stat_calc_time_s,
     }
 
     return featureVec
@@ -210,30 +210,30 @@ def get_graph_properties_from_matrix(
     """
 
     # G = get_tbt_graph(tbt_tensor, threshold)
-    start = time.time()  #
+    start = time.process_time_ns()  #
     G = nx.from_numpy_array(matrix)
-    stop = time.time()  #
-    graph_creation_time = stop - start  #
+    stop = time.process_time_ns()  #
+    graph_creation_time = (stop - start) / 1e9  #
 
     edgeCount = G.number_of_edges()
 
-    start = time.time()  #
+    start = time.process_time_ns()  #
     algebraic_connectivity = nx.algebraic_connectivity(G)
-    stop = time.time()  #
-    algebraic_connectivity_calc_time = stop - start  #
+    stop = time.process_time_ns()  #
+    algebraic_connectivity_calc_time_s = (stop - start) / 1e9  #
 
     # diam = nx.diameter(G)
     # rad = nx.radius(G)
-    start = time.time()  #
+    start = time.process_time_ns()  #
     transitivity = nx.transitivity(G)
-    stop = time.time()  #
-    transitivity_calc_time = stop - start  #
+    stop = time.process_time_ns()  #
+    transitivity_calc_time_s = (stop - start) / 1e9  #
 
-    start = time.time()  #
+    start = time.process_time_ns()  #
     specA = nx.adjacency_spectrum(G)
-    stop = time.time()  #
-    specA_calc_time = stop - start  #
-    start = time.time()  #
+    stop = time.process_time_ns()  #
+    specA_calc_time_s = (stop - start) / 1e9  #
+    start = time.process_time_ns()  #
     specA_min = np.min(specA)
     specA_Q2 = np.median(specA)
     specA_max = np.max(specA)
@@ -241,14 +241,14 @@ def get_graph_properties_from_matrix(
     specA_std = np.std(specA)
     specA_coeff_variation = (specA_std.real + 1e-16) / (specA_mean.real + 1e-16)  #
     specA_power_spectral_entropy = power_spectral_entropy(specA)
-    stop = time.time()  #
-    specA_stat_calc_time = stop - start  #
+    stop = time.process_time_ns()  #
+    specA_stat_calc_time_s = (stop - start) / 1e9  #
 
-    start = time.time()  #
+    start = time.process_time_ns()  #
     specL = nx.laplacian_spectrum(G)
-    stop = time.time()  #
-    specL_calc_time = stop - start  #
-    start = time.time()  #
+    stop = time.process_time_ns()  #
+    specL_calc_time_s = (stop - start) / 1e9  #
+    start = time.process_time_ns()  #
     specL_min = np.min(specL)
     specL_Q2 = np.median(specL)
     specL_max = np.max(specL)
@@ -256,8 +256,8 @@ def get_graph_properties_from_matrix(
     specL_std = np.std(specL)
     specL_coeff_variation = (specL_std.real + 1e-16) / (specL_mean.real + 1e-16)  #
     specL_power_spectral_entropy = power_spectral_entropy(specL)
-    stop = time.time()  #
-    specL_stat_calc_time = stop - start  #
+    stop = time.process_time_ns()  #
+    specL_stat_calc_time_s = (stop - start) / 1e9  #
 
     featureVec = {
         # General graph features
@@ -265,8 +265,8 @@ def get_graph_properties_from_matrix(
         f"{feature_prefix}transitivity": transitivity,
         f"{feature_prefix}edgeCount": edgeCount,
         f"{feature_prefix}graph_creation_time": graph_creation_time,
-        f"{feature_prefix}algebraic_connectivity_calc_time": algebraic_connectivity_calc_time,
-        f"{feature_prefix}transitivity_calc_time": transitivity_calc_time,
+        f"{feature_prefix}algebraic_connectivity_calc_time_s": algebraic_connectivity_calc_time_s,
+        f"{feature_prefix}transitivity_calc_time_s": transitivity_calc_time_s,
         # Adjacency matrix spectrum features
         f"{feature_prefix}specA_min": specA_min.real,
         f"{feature_prefix}specA_Q2": specA_Q2.real,
@@ -275,8 +275,8 @@ def get_graph_properties_from_matrix(
         f"{feature_prefix}specA_std": specA_std.real,
         f"{feature_prefix}specA_coeff_variation": specA_coeff_variation,
         f"{feature_prefix}specA_power_spectral_entropy": specA_power_spectral_entropy,
-        f"{feature_prefix}specA_calc_time": specA_calc_time,
-        f"{feature_prefix}specA_stat_calc_time": specA_stat_calc_time,
+        f"{feature_prefix}specA_calc_time_s": specA_calc_time_s,
+        f"{feature_prefix}specA_stat_calc_time_s": specA_stat_calc_time_s,
         # Laplacian matrix spectrum features
         f"{feature_prefix}specL_min": specL_min.real,
         f"{feature_prefix}specL_Q2": specL_Q2.real,
@@ -285,17 +285,17 @@ def get_graph_properties_from_matrix(
         f"{feature_prefix}specL_std": specL_std.real,
         f"{feature_prefix}specL_coeff_variation": specL_coeff_variation,
         f"{feature_prefix}specL_power_spectral_entropy": specL_power_spectral_entropy,
-        f"{feature_prefix}specL_calc_time": specL_calc_time,
-        f"{feature_prefix}specL_stat_calc_time": specL_stat_calc_time,
+        f"{feature_prefix}specL_calc_time_s": specL_calc_time_s,
+        f"{feature_prefix}specL_stat_calc_time_s": specL_stat_calc_time_s,
     }
 
     if calc_resistance_matrix_properties:
-        start = time.time()  #
+        start = time.process_time_ns()  #
         R = resistance_matrix(G)
         specR = np.linalg.eigvals(R)
-        stop = time.time()  #
-        specR_calc_time = stop - start  #
-        start = time.time()  #
+        stop = time.process_time_ns()  #
+        specR_calc_time_s = (stop - start) / 1e9  #
+        start = time.process_time_ns()  #
         specR_min = np.min(specR)
         specR_Q2 = np.median(specR)
         specR_max = np.max(specR)
@@ -303,8 +303,8 @@ def get_graph_properties_from_matrix(
         specR_std = np.std(specR)
         specR_coeff_variation = (specR_std.real + 1e-16) / (specR_mean.real + 1e-16)  #
         specR_power_spectral_entropy = power_spectral_entropy(specR)
-        stop = time.time()  #
-        specR_stat_calc_time = stop - start  #
+        stop = time.process_time_ns()  #
+        specR_stat_calc_time_s = (stop - start) / 1e9  #
 
         res_mat_prop = {
             # Resistance matrix spectrum features
@@ -315,8 +315,8 @@ def get_graph_properties_from_matrix(
             f"{feature_prefix}specR_std": specR_std.real,
             f"{feature_prefix}specR_coeff_variation": specR_coeff_variation,
             f"{feature_prefix}specR_power_spectral_entropy": specR_power_spectral_entropy,
-            f"{feature_prefix}specR_calc_time": specR_calc_time,
-            f"{feature_prefix}specR_stat_calc_time": specR_stat_calc_time,
+            f"{feature_prefix}specR_calc_time_s": specR_calc_time_s,
+            f"{feature_prefix}specR_stat_calc_time_s": specR_stat_calc_time_s,
         }
 
         featureVec.update(res_mat_prop)

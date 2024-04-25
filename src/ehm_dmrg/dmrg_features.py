@@ -3,7 +3,9 @@
 import time
 
 import numpy as np
-import pyscf
+
+# import pyscf
+import pyscf.fci.direct_spin1
 import scipy as sp
 import scipy.linalg as spla
 import scipy.special as sps
@@ -67,9 +69,21 @@ def generate_mean_field_matrix(coulomb_matrix, exchange_matrix):
 
 def generate_tbt_matrices(two_body_tensor):
     """Generates the Coulomb, exchange, and mean field matrices from the two-body tensor."""
+    start_time = time.process_time_ns()
     coulomb_matrix = generate_coulomb_integral_matrix(two_body_tensor)
+    end_time = time.process_time_ns()
+    print("Coulomb matrix calculation time:", (end_time - start_time) / 1e9)
+
+    start_time = time.process_time_ns()
     exchange_matrix = generate_exchange_integral_matrix(two_body_tensor)
+    end_time = time.process_time_ns()
+    print("Exchange matrix calculation time:", (end_time - start_time) / 1e9)
+
+    start_time = time.process_time_ns()
     mean_field_matrix = generate_mean_field_matrix(coulomb_matrix, exchange_matrix)
+    end_time = time.process_time_ns()
+    print("Mean field matrix calculation time:", (end_time - start_time) / 1e9)
+
     return coulomb_matrix, exchange_matrix, mean_field_matrix
 
 
@@ -109,33 +123,44 @@ def get_dmrg_features(
     # and returns the tbt assuming H = 0.5*G_ijkl a†_i a_j a†_k a_l
     # Note that this transformation is not general and is only valid for the specified number of
     # electrons.
-    one_and_two_body_tensor = pyscf.direct_spin1.absorb_h1e(
+    print("one_body_tensor.shape", one_body_tensor.shape)
+    print("two_body_tensor.shape", two_body_tensor.shape)
+    one_and_two_body_tensor = pyscf.fci.direct_spin1.absorb_h1e(
         h1e=one_body_tensor,
         eri=two_body_tensor,
         norb=num_orbitals,
         nelec=num_electrons,
         fac=1,
     )
+    one_and_two_body_tensor = pyscf.ao2mo.restore(
+        1, one_and_two_body_tensor, num_orbitals
+    )
+    print("one_body_tensor.shape", one_body_tensor.shape)
+    print("two_body_tensor.shape", two_body_tensor.shape)
+    print("one_and_two_body_tensor.shape", one_and_two_body_tensor.shape)
+    print("num_orbitals", num_orbitals)
+    print("num_electrons", num_electrons)
     # local_two_body_tensor *= 0.5
 
     # Various bandwiths and other matrix properties for the Coulomb, exchange, and mean field matrices
-    tbt_matrices_calc_start = time.time()
+    tbt_matrices_calc_start = time.process_time_ns()
     coulomb_matrix, exchange_matrix, mean_field_matrix = generate_tbt_matrices(
         one_and_two_body_tensor
     )
-    tbt_matrices_calc_end = time.time()
-    feature_dict["tbt_matrices_calc_time"] = (
+    tbt_matrices_calc_end = time.process_time_ns()
+    feature_dict["tbt_matrices_calc_time_s"] = (
         tbt_matrices_calc_end - tbt_matrices_calc_start
-    )
+    ) / 1e9
+    print("Generated tbt matrices, time:", feature_dict["tbt_matrices_calc_time_s"])
 
-    bandwidth_start = time.time()
+    bandwidth_start = time.process_time_ns()
     coulomb_matrix_bandwidths = spla.bandwidth(coulomb_matrix)
     exchange_matrix_bandwidths = spla.bandwidth(exchange_matrix)
     mean_field_matrix_bandwidths = spla.bandwidth(mean_field_matrix)
 
-    bandwidth_end = time.time()
-    feature_dict["bandwidth_calc_time"] = bandwidth_end - bandwidth_start
-    # print("Bandwidth calculation time:", bandwidth_end - bandwidth_start)
+    bandwidth_end = time.process_time_ns()
+    feature_dict["bandwidth_calc_time_s"] = (bandwidth_end - bandwidth_start) / 1e9
+    print("Bandwidth calculation time:", feature_dict["bandwidth_calc_time_s"])
 
     feature_dict["coulomb_matrix_bandwidth_upper"] = coulomb_matrix_bandwidths[1]
     feature_dict["coulomb_matrix_bandwidth_lower"] = coulomb_matrix_bandwidths[0]
@@ -144,89 +169,111 @@ def get_dmrg_features(
     feature_dict["mean_field_matrix_bandwidth_upper"] = mean_field_matrix_bandwidths[1]
     feature_dict["mean_field_matrix_bandwidth_lower"] = mean_field_matrix_bandwidths[0]
 
-    coulomb_start = time.time()
+    coulomb_start = time.process_time_ns()
     new_feature_dict = gm.get_graph_properties_from_matrix(
         matrix=coulomb_matrix,
         feature_prefix="coulomb_matrix_",
         calc_resistance_matrix_properties=calc_resistance_matrix_properties,
     )
-    coulomb_end = time.time()
-    feature_dict["coulomb_calc_time"] = coulomb_end - coulomb_start
+    coulomb_end = time.process_time_ns()
+    feature_dict["coulomb_calc_time_s"] = (coulomb_end - coulomb_start) / 1e9
     feature_dict.update(new_feature_dict)
+    print("Coulomb matrix features calculated")
+    print("Coulomb matrix calculation time:", feature_dict["coulomb_calc_time_s"])
 
-    exchange_start = time.time()
+    exchange_start = time.process_time_ns()
     new_feature_dict = gm.get_graph_properties_from_matrix(
         matrix=exchange_matrix,
         feature_prefix="exchange_matrix_",
         calc_resistance_matrix_properties=calc_resistance_matrix_properties,
     )
-    exchange_end = time.time()
-    feature_dict["exchange_calc_time"] = exchange_end - exchange_start
+    exchange_end = time.process_time_ns()
+    feature_dict["exchange_calc_time_s"] = (exchange_end - exchange_start) / 1e9
     feature_dict.update(new_feature_dict)
+    print("Exchange matrix features calculated")
+    print("Exchange matrix calculation time:", feature_dict["exchange_calc_time_s"])
 
-    # mean_field_start = time.time()
+    # mean_field_start = time.process_time_ns()
     # new_feature_dict = gm.get_graph_properties_from_matrix(
     #     matrix=mean_field_matrix,
     #     feature_prefix="mean_field_matrix_",
     #     calc_resistance_matrix_properties=calc_resistance_matrix_properties,
     # )
-    # mean_field_end = time.time()
-    # feature_dict["mean_field_calc_time"] = mean_field_end - mean_field_start
+    # mean_field_end = time.process_time_ns()
+    # feature_dict["mean_field_calc_time_s"] = (mean_field_end - mean_field_start)/1e9
     # feature_dict.update(new_feature_dict)
 
     # Various properties of the absolute version of the two-body tensor to graph mapping
-    tbt_graph_mapping_start = time.time()
+    tbt_graph_mapping_start = time.process_time_ns()
     tbt_abs_graph_mapping = gm.get_tbt_graph_adjacency_matrix_abs_element(
         one_and_two_body_tensor, threshold=1e-8
     )
-    tbt_graph_mapping_end = time.time()
-    feature_dict["tbt_graph_mapping_calc_time"] = (
+    tbt_graph_mapping_end = time.process_time_ns()
+    feature_dict["tbt_graph_mapping_calc_time_s"] = (
         tbt_graph_mapping_end - tbt_graph_mapping_start
+    ) / 1e9
+    print(
+        "tbt_graph_mapping_calc_time_s", feature_dict["tbt_graph_mapping_calc_time_s"]
     )
 
-    tbt_abs_graph_mapping_calc_start = time.time()
+    tbt_abs_graph_mapping_calc_start = time.process_time_ns()
     new_feature_dict = gm.get_graph_properties_from_matrix(
         matrix=tbt_abs_graph_mapping,
         feature_prefix="tbt_abs_graph_mapping_",
         calc_resistance_matrix_properties=calc_resistance_matrix_properties,
     )
-    tbt_abs_graph_mapping_calc_end = time.time()
-    feature_dict["tbt_abs_graph_mapping_calc_time"] = (
+    tbt_abs_graph_mapping_calc_end = time.process_time_ns()
+    feature_dict["tbt_abs_graph_mapping_calc_time_s"] = (
         tbt_abs_graph_mapping_calc_end - tbt_abs_graph_mapping_calc_start
-    )
+    ) / 1e9
     feature_dict.update(new_feature_dict)
+    print("tbt_abs_graph_mapping features calculated")
+    print(
+        "tbt_abs_graph_mapping_calc_time_s",
+        feature_dict["tbt_abs_graph_mapping_calc_time_s"],
+    )
 
     # Various properties of one-body tensor
-    one_body_tensor_start = time.time()
+    one_body_tensor_start = time.process_time_ns()
     new_feature_dict = gm.get_graph_properties_from_matrix(
         matrix=one_body_tensor,
         feature_prefix="one_body_tensor_",
         calc_resistance_matrix_properties=calc_resistance_matrix_properties,
     )
+
     feature_dict.update(new_feature_dict)
 
     obt_bandwidths = spla.bandwidth(one_body_tensor)
-    one_body_tensor_end = time.time()
-    feature_dict["one_body_tensor_calc_time"] = (
+    one_body_tensor_end = time.process_time_ns()
+    feature_dict["one_body_tensor_calc_time_s"] = (
         one_body_tensor_end - one_body_tensor_start
-    )
+    ) / 1e9
     feature_dict["one_body_tensor_bandwidth_upper"] = obt_bandwidths[1]
     feature_dict["one_body_tensor_bandwidth_lower"] = obt_bandwidths[0]
+    print("one_body_tensor features calculated")
+    print("one_body_tensor_calc_time_s", feature_dict["one_body_tensor_calc_time_s"])
 
     # Various properties of the two-body tensor
-    tbt_density_hopping_start = time.time()
+    tbt_density_hopping_start = time.process_time_ns()
     new_feature_dict = tbt_density_hopping_features(one_and_two_body_tensor)
     feature_dict.update(new_feature_dict)
-    tbt_density_hopping_end = time.time()
-    feature_dict["tbt_density_hopping_calc_time"] = (
+    tbt_density_hopping_end = time.process_time_ns()
+    feature_dict["tbt_density_hopping_calc_time_s"] = (
         tbt_density_hopping_end - tbt_density_hopping_start
+    ) / 1e9
+    print("tbt_density_hopping features calculated")
+    print(
+        "tbt_density_hopping_calc_time_s",
+        feature_dict["tbt_density_hopping_calc_time_s"],
     )
 
-    tbt_start = time.time()
+    tbt_start = time.process_time_ns()
     new_feature_dict = tbt_features(one_and_two_body_tensor)
     feature_dict.update(new_feature_dict)
-    tbt_end = time.time()
-    feature_dict["tbt_calc_time"] = tbt_end - tbt_start
+    tbt_end = time.process_time_ns()
+    feature_dict["tbt_calc_time_s"] = (tbt_end - tbt_start) / 1e9
+    print("tbt features calculated")
+    print("tbt_calc_time_s", feature_dict["tbt_calc_time_s"])
 
     return feature_dict
 

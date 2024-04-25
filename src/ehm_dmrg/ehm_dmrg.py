@@ -1,8 +1,9 @@
 from pathlib import Path
 
-import dmrg_features
 import pandas as pd
-import pyscf
+import pyscf.tools.fcidump
+
+import ehm_dmrg.dmrg_features as dmrg_features
 
 
 def dmrg_features_from_fcidump(
@@ -22,7 +23,7 @@ def dmrg_features_from_fcidump(
     num_orbitals = fcidump_dict["NORB"]
     num_electrons = fcidump_dict["NELEC"]
     num_spin_orbitals = 2 * num_orbitals
-    two_S = fcidump_dict["MS"]
+    two_S = fcidump_dict["MS2"]
     orbsym = fcidump_dict["ORBSYM"]
     isym = fcidump_dict["ISYM"]
     one_body_tensor = fcidump_dict["H1"]
@@ -31,7 +32,8 @@ def dmrg_features_from_fcidump(
     # Tensors assume the Hamiltonian is in the form:
     # H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
     # with no permutation symmetry compression for two_body_tensor. ijkl are spatial orbitals.
-
+    print("one_body_tensor.shape", one_body_tensor.shape)
+    print("two_body_tensor.shape", two_body_tensor.shape)
     feature_dict = {
         "num_orbitals": num_orbitals,
         "num_electrons": num_electrons,
@@ -40,6 +42,7 @@ def dmrg_features_from_fcidump(
         "orbsym": orbsym,
         "isym": isym,
     }
+    print(feature_dict)
 
     tensors_features_dict = dmrg_features.get_dmrg_features(
         one_body_tensor=one_body_tensor,

@@ -19,6 +19,7 @@ datashader = "^0.16.1"
 h5py = "^3.11.0"
 matplotlib = "^3.8.4"
 pyscf = "^2.5.0"
+notebook = "^7.1.3"
 
 [tool.poetry.dev-dependencies]
 
