@@ -18,6 +18,7 @@ seaborn = "^0.13.2"
 datashader = "^0.16.1"
 h5py = "^3.11.0"
 matplotlib = "^3.8.4"
+pyscf = "^2.5.0"
 
 [tool.poetry.dev-dependencies]
 

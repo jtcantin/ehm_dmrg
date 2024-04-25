@@ -3,6 +3,7 @@
 import time
 
 import numpy as np
+import pyscf
 import scipy as sp
 import scipy.linalg as spla
 import scipy.special as sps
@@ -13,7 +14,7 @@ import ehm_dmrg.graph_mapping as gm
 def generate_coulomb_integral_matrix(two_body_tensor):
     """Generates the Coulomb integral matrix from the two-body tensor,
     using the definition from https://doi.org/10.1063/1.1824891
-    J_ij = V_ijji = g_iijj, where g_pqrs is the two-body tensor."""
+    J_ij = V_ijji = G_iijj, where H = 0.5*G_ijkl a†_i a_j a†_k a_l ."""
     # num_sites = two_body_tensor.shape[0]
     # coulomb_matrix_old = np.zeros(
     #     (
@@ -37,7 +38,7 @@ def generate_coulomb_integral_matrix(two_body_tensor):
 def generate_exchange_integral_matrix(two_body_tensor):
     """Generates the exchange integral matrix from the two-body tensor,
     using the definition from https://doi.org/10.1063/1.1824891
-    K_ij = V_ijij = g_ijji, where g_pqrs is the two-body tensor."""
+    K_ij = V_ijij = g_ijji, where H = 0.5*G_ijkl a†_i a_j a†_k a_l ."""
     # num_sites = two_body_tensor.shape[0]
     # exchange_matrix_old = np.zeros(
     #     (
@@ -76,33 +77,51 @@ def get_dmrg_features(
     one_body_tensor=None,
     two_body_tensor=None,
     num_electrons=None,
-    spin_orbitals_bool=True,
-    tbt_one_half_convention=False,
+    # spin_orbitals_bool=True,
+    # tbt_one_half_convention=True,
     calc_resistance_matrix_properties=True,
 ):
+    # The tensors are assumed to be defined in terms of the following Hamiltonian:
+    # H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+    # with no permutation symmetry compression for two_body_tensor. ijkl are spatial orbitals.
 
-    if not tbt_one_half_convention:
-        # By convention, 0.5*g_pqrs are the coefficients for the two-electron terms
-        # If the two-body tensor is not in this convention, we need to convert it
-        local_two_body_tensor = 2 * two_body_tensor
-    else:
-        local_two_body_tensor = two_body_tensor
+    # if not tbt_one_half_convention:
+    #     # By convention, 0.5*g_pqrs are the coefficients for the two-electron terms
+    #     # If the two-body tensor is not in this convention, we need to convert it
+    #     local_two_body_tensor = 2 * two_body_tensor
+    # else:
+    #     local_two_body_tensor = two_body_tensor
 
     feature_dict = {}
-    num_sites = one_body_tensor.shape[0]
-    if spin_orbitals_bool:
-        num_spin_orbitals = 2 * num_sites
-    else:
-        num_spin_orbitals = num_sites
-
+    num_orbitals = one_body_tensor.shape[0]
+    # if spin_orbitals_bool:
+    #     num_spin_orbitals = 2 * num_sites
+    # else:
+    #     num_spin_orbitals = num_sites
+    num_spin_orbitals = 2 * num_orbitals
     # Number of possible states, given num_electrons and num_spin_orbitals
     total_num_states = sps.comb(num_spin_orbitals, num_electrons, exact=True)
     feature_dict["total_num_states"] = total_num_states
+    feature_dict["log10_hilbert_space_size"] = np.log10(total_num_states)
+
+    # Combine one and two body tensors into a single tensor
+    # absorb_h1e assumes the Hamiltonian is H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
+    # and returns the tbt assuming H = 0.5*G_ijkl a†_i a_j a†_k a_l
+    # Note that this transformation is not general and is only valid for the specified number of
+    # electrons.
+    one_and_two_body_tensor = pyscf.direct_spin1.absorb_h1e(
+        h1e=one_body_tensor,
+        eri=two_body_tensor,
+        norb=num_orbitals,
+        nelec=num_electrons,
+        fac=1,
+    )
+    # local_two_body_tensor *= 0.5
 
     # Various bandwiths and other matrix properties for the Coulomb, exchange, and mean field matrices
     tbt_matrices_calc_start = time.time()
     coulomb_matrix, exchange_matrix, mean_field_matrix = generate_tbt_matrices(
-        local_two_body_tensor
+        one_and_two_body_tensor
     )
     tbt_matrices_calc_end = time.time()
     feature_dict["tbt_matrices_calc_time"] = (
@@ -158,7 +177,7 @@ def get_dmrg_features(
     # Various properties of the absolute version of the two-body tensor to graph mapping
     tbt_graph_mapping_start = time.time()
     tbt_abs_graph_mapping = gm.get_tbt_graph_adjacency_matrix_abs_element(
-        local_two_body_tensor, threshold=1e-8
+        one_and_two_body_tensor, threshold=1e-8
     )
     tbt_graph_mapping_end = time.time()
     feature_dict["tbt_graph_mapping_calc_time"] = (
@@ -196,7 +215,7 @@ def get_dmrg_features(
 
     # Various properties of the two-body tensor
     tbt_density_hopping_start = time.time()
-    new_feature_dict = tbt_density_hopping_features(local_two_body_tensor)
+    new_feature_dict = tbt_density_hopping_features(one_and_two_body_tensor)
     feature_dict.update(new_feature_dict)
     tbt_density_hopping_end = time.time()
     feature_dict["tbt_density_hopping_calc_time"] = (
@@ -204,7 +223,7 @@ def get_dmrg_features(
     )
 
     tbt_start = time.time()
-    new_feature_dict = tbt_features(local_two_body_tensor)
+    new_feature_dict = tbt_features(one_and_two_body_tensor)
     feature_dict.update(new_feature_dict)
     tbt_end = time.time()
     feature_dict["tbt_calc_time"] = tbt_end - tbt_start

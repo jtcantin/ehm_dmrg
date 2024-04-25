@@ -56,6 +56,8 @@ def get_tbt_graph_adjacency_matrix_abs_element(tbt_tensor, threshold=1e-8):
     Get a mapping fo the two body tensor to a graph,
     where the nodes are the (spin) orbitals
     and the edges are the sum of the absolute values of the elements connecting each site.
+    The Hamiltonian is assumed to be H = 0.5*G_ijkl a†_i a_j a†_k a_l, where G_ijkl
+    includes both the one and two body tensors.
     By Joshua T. Cantin
     """
     # replace values less than threshold by zero
@@ -66,7 +68,7 @@ def get_tbt_graph_adjacency_matrix_abs_element(tbt_tensor, threshold=1e-8):
 
     for iiter, jiter, kiter, liter in tbt_tensor_indices:
         element = tbt_tensor[iiter, jiter, kiter, liter]
-        # Use abs to get sense of connection strength
+        # Use abs to get sense of connection strength without interference effects
         abs_element = abs(element)
         adjacency_matrix[iiter, jiter] += abs_element
         adjacency_matrix[jiter, kiter] += abs_element
