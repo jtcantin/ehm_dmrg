@@ -7,7 +7,7 @@ import scipy as sp
 import scipy.linalg as spla
 import scipy.special as sps
 
-import graph_mapping as gm
+import ehm_dmrg.graph_mapping as gm
 
 
 def generate_coulomb_integral_matrix(two_body_tensor):

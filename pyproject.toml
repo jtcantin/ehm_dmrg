@@ -3,14 +3,21 @@ name = "ehm_dmrg"
 version = "0.1.0"
 description = "Process FCIDUMP files and DMRG results to make EEmpirical Hardness Models."
 authors = [
-    { name = "Joshua T. Cantin", email = "joshua.cantin@utoronto.ca" },
-    { name = "Mohsen Bagherimehrab", email = "mohsen.bagherimehrab@utoronto.ca" },
+"Joshua T. Cantin","Mohsen Bagherimehrab"
 ]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
+networkx = "^3.3"
+pandas = "^2.2.2"
+scipy = "^1.13.0"
+scikit-learn = "^1.4.2"
+seaborn = "^0.13.2"
+datashader = "^0.16.1"
+h5py = "^3.11.0"
+matplotlib = "^3.8.4"
 
 [tool.poetry.dev-dependencies]
 
