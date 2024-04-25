@@ -32,8 +32,9 @@ def dmrg_features_from_fcidump(
     # Tensors assume the Hamiltonian is in the form:
     # H = E_0 + h_ij a†_i a_j + 0.5*g_ijkl a†_i a†_k a_l a_j
     # with no permutation symmetry compression for two_body_tensor. ijkl are spatial orbitals.
-    print("one_body_tensor.shape", one_body_tensor.shape)
-    print("two_body_tensor.shape", two_body_tensor.shape)
+    if verbosity > 1:
+        print("one_body_tensor.shape", one_body_tensor.shape)
+        print("two_body_tensor.shape", two_body_tensor.shape)
     feature_dict = {
         "num_orbitals": num_orbitals,
         "num_electrons": num_electrons,
@@ -42,7 +43,8 @@ def dmrg_features_from_fcidump(
         "orbsym": orbsym,
         "isym": isym,
     }
-    print(feature_dict)
+    if verbosity > 0:
+        print("meta data features:", feature_dict)
 
     tensors_features_dict = dmrg_features.get_dmrg_features(
         one_body_tensor=one_body_tensor,
@@ -51,6 +53,7 @@ def dmrg_features_from_fcidump(
         # spin_orbitals_bool=True,
         # tbt_one_half_convention=True,
         calc_resistance_matrix_properties=calc_resistance_matrix_properties,
+        verbosity=verbosity,
     )
 
     feature_dict.update(tensors_features_dict)
