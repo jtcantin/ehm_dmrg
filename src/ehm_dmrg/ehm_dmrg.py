@@ -59,10 +59,3 @@ def dmrg_features_from_fcidump(
     feature_dict.update(tensors_features_dict)
 
     return feature_dict
-
-
-def load_dmrg_output_data(datafile_path):
-    # Data is assumed to be in a csv file
-    datafile_path = Path(datafile_path)
-    # Read from csv
-    data_df = pd.read_csv(datafile_path)

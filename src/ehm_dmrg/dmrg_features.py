@@ -118,7 +118,7 @@ def get_dmrg_features(
     #     num_spin_orbitals = num_sites
     num_spin_orbitals = 2 * num_orbitals
     # Number of possible states, given num_electrons and num_spin_orbitals
-    total_num_states = sps.comb(num_spin_orbitals, num_electrons, exact=True)
+    total_num_states = sps.comb(num_spin_orbitals, num_electrons, exact=False)
     feature_dict["total_num_states"] = total_num_states
     feature_dict["log10_hilbert_space_size"] = np.log10(total_num_states)
 
