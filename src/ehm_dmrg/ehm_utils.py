@@ -1,30 +1,19 @@
-import os
 import time
 
 import datashader as ds
-import h5py
-
-# import scikitplot as skplt
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-import networkx as nx
 import numpy as np
 import pandas as pd
 import scipy.stats as sps
 import seaborn as sns
 from datashader.mpl_ext import dsshow
 from sklearn import linear_model
-
-# from mosek.fusion import *
-from sklearn.covariance import ShrunkCovariance
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.inspection import permutation_importance
-
-# import cvxopt
-from sklearn.linear_model import LinearRegression, Ridge, RidgeCV, SGDRegressor
 
 # from xgboost import XGBRegressor
+from sklearn.inspection import permutation_importance
+from sklearn.linear_model import Ridge, RidgeCV, SGDRegressor
 from sklearn.metrics import log_loss, mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV, cross_val_score, train_test_split
 from sklearn.neighbors import KNeighborsRegressor
@@ -32,11 +21,20 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 
+# Here we define a two class objects, Score and Regressor.
+# In Score we have various scores defined for a regression model.
+# In Regressor we specify various attributes for a given regressor,
+# such as its name and its score.
+
 
 class Score:
-    r2 = 0.0                   
-    cross_vali_score = 0.0  
-    
+    rms = 0.0
+    pcc = 0.0
+    r2 = 0.0
+    cross_vali_score = 0.0
+    log_likelihood_score = 0.0
+
+
 class Regressor:
     def __init__(self, name):
         self.name = name
@@ -44,164 +42,243 @@ class Regressor:
         self.y_pred = None
         self.reg = None
 
-models_map = {'Linear': linear_model.LinearRegression(),
-              #'Ridge': Ridge(),
-              #'Lasso': linear_model.Lasso(),
-              'RF': RandomForestRegressor(), 
-              'SVR': SVR(),
-              #'KNeighbors': KNeighborsRegressor(),
-              'Gaussian Process': GaussianProcessRegressor(),
-              'DT': DecisionTreeRegressor(),
-            #   'NN': MLPRegressor(),
-              #'Gradient Descent': SGDRegressor(),
-            #   'Xgboost': XGBRegressor()
-             }
 
-def get_reg_models(models_map, X_train, X_test, y_train, y_test):
-    result_map = {}
-    for key, val in models_map.items():
+# We now specify various regression models as a dictionary,
+# with key being the regression name and value being the rgressor.
+# Here we have several regressor deactivated, i.e., commented out.
+# Dependenting on our need, they can be activated.
+# Note that some regressors, such as 'Gaussian Process' sometimes
+# take significant time, compared to others, to train.
+# If we identified other regressors, we can simply add them here similar to existing regressors.
+# The activated regressors are the one that we, the optimization teasm, typically use.
+
+regresssion_models = {
+    "Linear": linear_model.LinearRegression(),
+    "RF": RandomForestRegressor(),
+    "SVR": SVR(),
+    "DT": DecisionTreeRegressor(),
+    "NN": MLPRegressor(),
+    # "Xgboost": XGBRegressor(),
+    #'Ridge': Ridge()
+    #'Lasso': linear_model.Lasso(),
+    #'KNeighbors': KNeighborsRegressor(),
+    "Gaussian Process": GaussianProcessRegressor(),
+    #'Gradient Descent': SGDRegressor(),
+}
+
+
+def construct_EHMs(X_train, X_test, y_train, y_test):
+    """
+    Using the train and test data as inputs, this functions constructs
+    various regression models (i.e., EHMs) defined in the regresssion_models above
+    and computes various scores for the models specified in the Score class above.
+    """
+    EHMs = {}
+    for key, val in regresssion_models.items():
         result = Regressor(key)
         reg = val
-        result.score.cross_vali_score = np.mean(cross_val_score(reg, X_train, y_train, cv=5))        
-        result.reg = reg.fit(X_train, y_train) 
-        result.y_pred = reg.predict(X_test) 
-        result.score.r2 = r2_score(y_test, result.y_pred) 
-        result.score.rms = mean_squared_error(y_test, result.y_pred, squared=False)
-        #result.score.LL = log_loss(y_test, result.y_pred)
-        result.score.pcc = sps.pearsonr(y_test, result.y_pred)[0]
-        result_map[key] = result 
-    return result_map
 
-def get_scores(map):
-    for key, val in map.items():
-        print(val.name.upper() + ' SCORE: ')
-        print('RMS' + '  =  ', val.score.rms)
-        #print('Log likelihood score' + '  =  ', val.score.LL)
-        print('PCC' + '  =  ', val.score.pcc)
-        print('R2' + '  =  ', val.score.r2)
-        #print('CV' + '  =  ', val.score.cross_vali_score)
-        print('------------------------------------------\n')
-        
+        result.reg = reg.fit(X_train, y_train)
+        result.y_pred = reg.predict(X_test)
+
+        result.score.rms = mean_squared_error(y_test, result.y_pred, squared=False)
+        result.score.pcc = sps.pearsonr(y_test, result.y_pred)[0]
+        result.score.r2 = r2_score(y_test, result.y_pred)
+        # result.score.cross_vali_score = np.mean(cross_val_score(reg, X_train, y_train, cv=5))
+        # result.score.log_likelihood_score = log_loss(y_test, result.y_pred)
+
+        EHMs[key] = result
+    return EHMs
+
+
+def get_scores(EHMs):
+    """
+    This fuction gets regression models, i.e., EHMs,
+    and returns scores of the models.
+    Three sores that we typically used are activated here.
+    """
+    for key, val in EHMs.items():
+        print(val.name.upper() + " SCORE: ")
+        print("RMS" + "  =  ", val.score.rms)
+        print("PCC" + "  =  ", val.score.pcc)
+        print("R2" + "  =  ", val.score.r2)
+        # print('CV' + '  =  ', val.score.cross_vali_score)
+        # print('LL' + '  =  ', val.score.log_likelihood_score)
+        print("------------------------------------------\n")
+
+
 def datashader(ax, x, y):
+    """
+    This is helper function used in other functions for plotting.
+    """
     df = pd.DataFrame(dict(x=x, y=y))
     dsartist = dsshow(
         df,
         ds.Point("x", "y"),
         ds.count(),
-        vmin = 0,
-        vmax = 35,
-        norm = "linear",
-        aspect = "auto",
-        ax = ax)
-    plt.colorbar(dsartist,label = 'Number of points per pixel')
+        vmin=0,
+        vmax=35,
+        norm="linear",
+        aspect="auto",
+        ax=ax,
+    )
+    plt.colorbar(dsartist, label="Number of points per pixel")
 
-def show_predicted_vs_actual(models, y_test):   
-    for key, val in models.items():
+
+def plot_predicted_vs_actual(EHMs, y_test, actual_axis_label="", predict_axis_label=""):
+    """
+    This function takes the constructed EHMs and returns their plot,
+    where the x axis of the plot is actual hardness and y axis is the predicted hardness.
+    Labes of axis are taken as optional input as it may change depening on the problem;
+    the hardness may be different. Examples for axis lable is "runtime [sec]"", "Log runtime [sec]"
+    or "Sharpe Ratio". For "Log runtime [sec]" we take: predict_axis_label = "Log predicted runtime [sec]"
+    and actual_axis_label = "Log actual runtime [sec]". Note that labes are taken as sting inputs.
+    """
+    for key, val in EHMs.items():
         fig, ax = plt.subplots()
         x = y_test
         y = val.y_pred
-        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r-', lw=1)
-        ax.set_xlabel('Predicted Sharpe Ratio')
-        ax.set_ylabel('Actual Sharpe Ratio')
+        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], "r-", lw=1)
+        ax.set_xlabel(actual_axis_label)
+        ax.set_ylabel(predict_axis_label)
         ax.title.set_text(val.name.upper())
-        datashader(ax, x, y)
+        # datashader(ax, x, y)
+        ax.scatter(x, y)
         plt.show()
 
-def scores_graph(map):
-    comp_df = pd.DataFrame(columns = ('Models', 'RMS', 'R2'#, 'PCC', 'CV'
-                                     ))
-    for i in map:
-        row = {'Models': i,
-               'RMS': map[i].score.rms,
-               'R2' : map[i].score.r2,
-               'PCC': map[i].score.pcc,
-               #'CV' : map[i].score.cross_vali_score
-              }
-        comp_df = comp_df.append(row, ignore_index=True)
-    ax = comp_df.plot.bar(x='Models',rot=0 ,figsize=(8,4) #,figsize=(10,5)
-                         )
-    ax.set_title('')
-    #plt.legend(loc='below', ncol=3)
-    #ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-    ax.legend(loc='upper center', bbox_to_anchor=(.5, -.15),
-          fancybox=True, shadow=True, ncol=3)
-    
+
+def scores_graph(EHMs, plot_title):
+    """
+    This function takes the constructed EHMs as input and returns plot of their scores.
+    The second input is title for the plot. Example: plot_title = 'Scores for LKH'.
+    """
+    # comp_df = pd.DataFrame(columns=("Models", "RMS", "PCC", "R2"))  # ,'CV','LL'
+    row_list = []
+    for key in EHMs.keys():
+        row = {
+            "Models": key,
+            "RMS": EHMs[key].score.rms,
+            "PCC": EHMs[key].score.pcc,
+            "R2": EHMs[key].score.r2,
+            #'CV': EHMs[key].score.cross_vali_score
+            #'LL': EHMs[key].score.log_likelihood_score
+        }
+        row_list.append(row)
+
+    comp_df = pd.DataFrame(row_list)
+    # pd.concat(objs, *, axis=0, join='outer', ignore_index=False, keys=None, levels=None, names=None, verify_integrity=False, sort=False, copy=None)
+
+    ax = comp_df.plot.bar(x="Models", rot=0, figsize=(8, 4))
+    ax.set_title(plot_title)
+    # plt.legend(loc='below', ncol=3)
+    # ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.15),
+        fancybox=True,
+        shadow=True,
+        ncol=3,
+    )
+
     for p in ax.containers:
-        ax.bar_label(p, fmt='%.2f', label_type='edge',fontsize=8)
-        
-def scores_graph2(map):
-    comp_df = pd.DataFrame(columns = ('Models', 'RMS','PCC'))
-    for i in map:
-        row = {'Models': i,
-               'RMS': map[i].score.rms,
-               'R2' : map[i].score.r2,
-               'PCC': map[i].score.pcc,
-              }
-        comp_df = comp_df.append(row, ignore_index=True)
-    ax = comp_df.plot.bar(x='Models',rot=0 ,figsize=(8.5,4) #,figsize=(10,5)
-                         )
-    ax.set_title('')
-    
-    for p in ax.containers:
-        ax.bar_label(p, fmt='%.2f', label_type='edge',fontsize=8)
+        ax.bar_label(p, fmt="%.2f", label_type="edge", fontsize=8)
 
 
-
-# features = list(mlDataProc.drop([target], axis = 1, inplace = False))
-
-
-# See this
-# https://christophm.github.io/interpretable-ml-book/feature-importance.html
-
-def feature_importance_permutation(models, X, y, features):
-    for key, val in models.items():
-        feature_score = permutation_importance(val.reg, X, y, scoring='neg_mean_squared_error')
-        feature_score_df = pd.Series(feature_score.importances_mean, index=features).sort_values(ascending=False)
+def feature_importance_permutation(EHMs, features, X, y):
+    """
+    This function gets the regression models, i.e., EHMs,
+    and computes importance of features in constructiing the model baed on the permutation-based method.
+    The function returns plots of feature importace for each model.
+    Also see this https://christophm.github.io/interpretable-ml-book/feature-importance.html
+    """
+    for key, val in EHMs.items():
+        feature_score = permutation_importance(
+            val.reg, X, y, scoring="neg_mean_squared_error"
+        )
+        feature_score_df = pd.Series(
+            feature_score.importances_mean, index=features
+        ).sort_values(ascending=False)
         fig, ax = plt.subplots(figsize=(6, 8))
         sns.barplot(x=feature_score_df, y=feature_score_df.index)
-        plt.xlabel('Feature Importance Score')
-        plt.ylabel('Features')
-        plt.title("Permutation-Based Feature Importance " + "(" + val.name.upper() +")")
+        plt.xlabel("Feature Importance Score")
+        plt.ylabel("Features")
+        plt.title(
+            "Permutation-Based Feature Importance " + "(" + val.name.upper() + ")"
+        )
         plt.show()
 
-# tree-based feature importance
-def feature_importance_impurity(models, features):
-    for key, val in models.items():
-        if key == 'RF' or key == 'Xgboost' or key == "DT" or key == "AdaBoost":
-            feature_score = pd.Series(val.reg.feature_importances_, index=features).sort_values(ascending=False)
+
+def feature_importance_impurity(EHMs, features):
+    """
+    This function gets the EHMs (regression models)
+    and computes importance of features in constructiing the model baed on the impurity-based method.
+    The function returns plots of feature importace for each model. As this method applies to tree-based
+    mosels, we need to specify them in the if statement below.
+    Also see this https://christophm.github.io/interpretable-ml-book/feature-importance.html
+    """
+    for key, val in EHMs.items():
+        if key == "RF" or key == "Xgboost" or key == "DT" or key == "AdaBoost":
+            feature_score = pd.Series(
+                val.reg.feature_importances_, index=features
+            ).sort_values(ascending=False)
             fig, ax = plt.subplots(figsize=(6, 8))
             sns.barplot(x=feature_score, y=feature_score.index)
-            plt.xlabel('Feature Importance Score')
-            plt.ylabel('Features')
-            plt.title("Impurity-Based Feature Importance " + "(" + val.name.upper() +")")
+            plt.xlabel("Feature Importance Score")
+            plt.ylabel("Features")
+            plt.title(
+                "Impurity-Based Feature Importance " + "(" + val.name.upper() + ")"
+            )
             plt.show()
 
-def preprocess(dataDf):
-    
-    target = 'discarded_weight'
-    dff = dataDf.drop([target], axis =1)
+
+def preprocess(rawdata_df, target, normalize_target=False):
+    """
+    This functions takes the rawdata as a dataframe and performs the preprocessing step.
+    The function returns the preprocessed data as a datarame.
+    It is assumed that the rawdata contains problem features and one target value, where
+    the taget is the hardness, or solution returned from the solver.
+    If the rawdata has target value for multiple solvers, it must be first reduced to data
+    for one solver before feeding to this fucntion.
+    """
+
+    # df = pd.read_csv(rawdata)
+
+    # remove the target column from the data
+    preproc_df = rawdata_df.drop([target], axis=1)
 
     # remove columns with variance < 0.01
-    dff = dff.loc[:, dff.var() > 0.01]
-    
+    preproc_df = preproc_df.loc[:, preproc_df.var() > 0.01]
+
     # remove identical columns
-    dff = dff.T.drop_duplicates().T
-    
-    
-    dfC = dff.join(dataDf[target])
-    
-    # remove inf values from data (i.e. retain finite values)
-    dfC_trunc = dfC[np.isfinite(dfC).all(1)]
-    
-    dfC_proc = dfC_trunc.drop([target], axis=1)
-    
+    preproc_df = preproc_df.T.drop_duplicates().T
+
+    # join the target column
+    preproc_df = preproc_df.join(rawdata_df[target])
+
+    # remove inf values from the data (i.e. retain finite values)
+    preproc_df = preproc_df[np.isfinite(preproc_df).all(1)]
+
+    if not normalize_target:
+        # remove the target column
+        preproc_df = preproc_df.drop([target], axis=1)
+
     # normalize data
-    dfC_proc = (dfC_proc - dfC_proc.min())/(dfC_proc.max() - dfC_proc.min())
-    
+    preproc_df = (preproc_df - preproc_df.min()) / (preproc_df.max() - preproc_df.min())
+
     # standardize data
-    dfC_proc = (dfC_proc - dfC_proc.mean())/dfC_proc.std()
-    
-    # add targets to processed data
-    dfC_proc.insert(loc=0, column = target, value = dataDf[target])
-    
-    return dfC_proc
+    preproc_df = (preproc_df - preproc_df.mean()) / preproc_df.std()
+
+    if not normalize_target:
+        # add  target to processed data
+        preproc_df.insert(loc=0, column=target, value=rawdata_df[target])
+
+    return preproc_df
+
+
+def prune_features(preproc_df, to_keep, target):
+    # Drop all columns except the target and the columns in to_keep
+    for col in preproc_df.columns:
+        if col not in to_keep and col != target:
+            preproc_df = preproc_df.drop(columns=[col])
+
+    return preproc_df

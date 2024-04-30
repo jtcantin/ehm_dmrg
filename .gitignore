@@ -144,3 +144,6 @@ dmypy.json
 # Environment
 env_ehm_dmrg/*
 poetry.lock
+Constructing_EHMs.ipynb
+ehm_utils_backup.py
+preprocess.ipynb
