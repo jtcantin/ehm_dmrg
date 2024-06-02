@@ -147,3 +147,7 @@ poetry.lock
 Constructing_EHMs.ipynb
 ehm_utils_backup.py
 preprocess.ipynb
+examples/dmrg_ehm_init_make_ehm_best_so_far.ipynb
+examples/dmrg_ehm_init_make_ehm_maybe_decent_for_paper.ipynb
+examples/dmrg_ehm_init_make_ehm_surprisingly_good_model.ipynb
+dmrg_ehm_rf_plot.png

@@ -205,6 +205,7 @@ def feature_importance_permutation(EHMs, features, X, y):
         plt.title(
             "Permutation-Based Feature Importance " + "(" + val.name.upper() + ")"
         )
+        # print(feature_score_df)
         plt.show()
 
 
@@ -228,10 +229,11 @@ def feature_importance_impurity(EHMs, features):
             plt.title(
                 "Impurity-Based Feature Importance " + "(" + val.name.upper() + ")"
             )
+            print(feature_score)
             plt.show()
 
 
-def preprocess(rawdata_df, target, normalize_target=False):
+def preprocess(rawdata_df, target, normalize_target=False,pca_decorrelation=False):
     """
     This functions takes the rawdata as a dataframe and performs the preprocessing step.
     The function returns the preprocessed data as a datarame.
@@ -246,8 +248,8 @@ def preprocess(rawdata_df, target, normalize_target=False):
     # remove the target column from the data
     preproc_df = rawdata_df.drop([target], axis=1)
 
-    # remove columns with variance < 0.01
-    preproc_df = preproc_df.loc[:, preproc_df.var() > 0.01]
+    # # remove columns with variance < 0.01
+    # preproc_df = preproc_df.loc[:, preproc_df.var() > 0.01]
 
     # remove identical columns
     preproc_df = preproc_df.T.drop_duplicates().T
@@ -257,6 +259,9 @@ def preprocess(rawdata_df, target, normalize_target=False):
 
     # remove inf values from the data (i.e. retain finite values)
     preproc_df = preproc_df[np.isfinite(preproc_df).all(1)]
+
+    # remove columns with no change in values
+    preproc_df = preproc_df.loc[:, preproc_df.nunique() > 1]
 
     if not normalize_target:
         # remove the target column
@@ -268,14 +273,38 @@ def preprocess(rawdata_df, target, normalize_target=False):
     # standardize data
     preproc_df = (preproc_df - preproc_df.mean()) / preproc_df.std()
 
+    if pca_decorrelation:
+        # PCA decorrelation
+        from sklearn.decomposition import PCA
+        if normalize_target:
+            target_values = preproc_df[target]
+            preproc_df = preproc_df.drop([target], axis=1)
+        pca = PCA(n_components=preproc_df.shape[1])
+        preproc_df = pca.fit_transform(preproc_df)
+        preproc_df = pd.DataFrame(preproc_df)
+        compenents = pca.components_
+        singular_values = pca.singular_values_
+        feature_names = pca.feature_names_in_
+
+        if normalize_target:
+            # return target to processed data
+            
+            preproc_df.insert(loc=0, column=target, value=target_values)
+            
+
     if not normalize_target:
         # add  target to processed data
         preproc_df.insert(loc=0, column=target, value=rawdata_df[target])
 
-    return preproc_df
+    if not pca_decorrelation:
+        return preproc_df
+    else:
+        return preproc_df, compenents, singular_values, feature_names
 
 
-def prune_features(preproc_df, to_keep, target):
+def prune_features(preproc_df, to_keep, target,keep_all=False):
+    if keep_all:
+        return preproc_df
     # Drop all columns except the target and the columns in to_keep
     for col in preproc_df.columns:
         if col not in to_keep and col != target:

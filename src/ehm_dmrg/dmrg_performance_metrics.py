@@ -34,7 +34,7 @@ def get_coarse_bond_dimension_needed_many_files(
     total_loops_wall_time_sec_list = []
     id_list = []
     for csv_file in csv_file_list:
-        id_list.append(csv_file[:-4])
+        
         csv_file_path = folder_path / csv_file
         (
             dmrg_energies,
@@ -61,9 +61,14 @@ def get_coarse_bond_dimension_needed_many_files(
         # print(energy_change)
         # print(np.where(energy_change < energy_change_threshold_hartrees))
 
-        e_diff_threshold_index = np.where(
+        e_diff_threshold_index_array = np.where(
             energy_change < energy_change_threshold_hartrees
-        )[0][0]
+        )[0]
+        if len(e_diff_threshold_index_array) == 0:
+            print(f"No energy change less than {energy_change_threshold_hartrees} for {csv_file}")
+            print(f"Min Energy change: {np.min(energy_change)}")
+            continue
+        e_diff_threshold_index=e_diff_threshold_index_array[0]
         coarse_bond_dimension = int(bond_dimensions[e_diff_threshold_index + 1])
 
         total_loops_cpu_time_sec = np.sum(
@@ -77,7 +82,7 @@ def get_coarse_bond_dimension_needed_many_files(
         # print(bond_dimensions)
         # print(coarse_bond_dimension)
         # coarse_bond_dimension = bond_dimensions[np.where(energy_change < energy_change_threshold_hartrees)[0][0]]
-
+        id_list.append(csv_file[:-4])
         coarse_bond_dimension_list.append(coarse_bond_dimension)
         total_loops_cpu_time_sec_list.append(total_loops_cpu_time_sec)
         total_loops_wall_time_sec_list.append(total_loops_wall_time_sec)
