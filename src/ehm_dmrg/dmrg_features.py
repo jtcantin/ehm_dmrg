@@ -311,6 +311,54 @@ def get_dmrg_features(
         print("tbt features calculated")
         print("tbt_calc_time_s", feature_dict["tbt_calc_time_s"])
 
+    # Hubbard distance
+    hubbard_distance_start = time.process_time_ns()
+    l2_norm_diff_obt, l2_norm_diff_tbt, l2_norm_diff_total = calc_hubbard_distance(
+        one_body_tensor, two_body_tensor
+    )
+    feature_dict["l2_norm_diff_obt"] = l2_norm_diff_obt
+    feature_dict["l2_norm_diff_tbt"] = l2_norm_diff_tbt
+    feature_dict["l2_norm_diff_total"] = l2_norm_diff_total
+    hubbard_distance_end = time.process_time_ns()
+    feature_dict["hubbard_distance_calc_time_s"] = (
+        hubbard_distance_end - hubbard_distance_start
+    ) / 1e9
+    if verbosity >= 1:
+        print("Hubbard distance features calculated")
+        print(
+            "hubbard_distance_calc_time_s",
+            feature_dict["hubbard_distance_calc_time_s"],
+        )
+
+    # Diagonal dominance
+    diagonal_dominance_start = time.process_time_ns()
+    (
+        obt_l2_norm,
+        obt_diag_l2_norm,
+        obt_ratio,
+        tbt_l2_norm,
+        tbt_diag_l2_norm,
+        tbt_ratio,
+        diagonal_dominance,
+    ) = calc_diagonal_dominance(one_body_tensor, two_body_tensor)
+    feature_dict["obt_l2_norm"] = obt_l2_norm
+    feature_dict["obt_diag_l2_norm"] = obt_diag_l2_norm
+    feature_dict["obt_diag_orig_l2_ratio"] = obt_ratio
+    feature_dict["tbt_l2_norm"] = tbt_l2_norm
+    feature_dict["tbt_diag_l2_norm"] = tbt_diag_l2_norm
+    feature_dict["tbt_diag_orig_l2_ratio"] = tbt_ratio
+    feature_dict["diagonal_dominance"] = diagonal_dominance
+    diagonal_dominance_end = time.process_time_ns()
+    feature_dict["diagonal_dominance_calc_time_s"] = (
+        diagonal_dominance_end - diagonal_dominance_start
+    ) / 1e9
+    if verbosity >= 1:
+        print("Diagonal dominance features calculated")
+        print(
+            "diagonal_dominance_calc_time_s",
+            feature_dict["diagonal_dominance_calc_time_s"],
+        )
+
     return feature_dict
 
 
@@ -381,3 +429,79 @@ def tbt_density_hopping_features(tbt_tensor):
 #         return (1e-16 + np.abs(coupling_element)) / (
 #             1e-16 + np.abs(site_1_element - site_2_element)
 #         )
+
+
+def calc_diagonal_dominance(ob_tensor, tb_tensor):
+    # ob_tensor is a 2D array
+    # tb_tensor is a 4D array
+    num_orbitals = ob_tensor.shape[0]
+    obt_diag = np.diagonal(ob_tensor)
+    obt_diag_l2_norm = np.linalg.norm(obt_diag, ord=2)
+    obt_l2_norm = np.linalg.norm(ob_tensor, ord=2)
+
+    # tbt_diag is the following number operator terms
+    # g_pqrs:
+    # p=q, r=s (g_pprr)
+    # p=r, q=s (g_prpr)
+    # p=s, q=r (g_prrp)
+    # Create scipy sparse tensor
+    # tbt_diag =spsparse.coo_matrix((num_orbitals,num_orbitals,num_orbitals,num_orbitals))
+    tbt_diag_l2_norm = 0
+    for p in range(num_orbitals):
+        for r in range(num_orbitals):
+            tbt_diag_l2_norm += tb_tensor[p, p, r, r] ** 2
+            tbt_diag_l2_norm += tb_tensor[p, r, p, r] ** 2
+            tbt_diag_l2_norm += tb_tensor[p, r, r, p] ** 2
+
+            # tbt_diag[p,p,r,r] = tb_tensor[p,p,r,r]
+            # tbt_diag[p,r,p,r] = tb_tensor[p,r,p,r]
+            # tbt_diag[p,r,r,p] = tb_tensor[p,r,r,p]
+    tbt_diag_l2_norm = 0.5 * np.sqrt(tbt_diag_l2_norm)
+
+    tbt_l2_norm = np.linalg.norm(tb_tensor.flat, ord=2)
+
+    obt_ratio = obt_diag_l2_norm / obt_l2_norm
+    tbt_ratio = tbt_diag_l2_norm / tbt_l2_norm
+
+    diagonal_dominance = obt_ratio + tbt_ratio
+    return (
+        obt_l2_norm,
+        obt_diag_l2_norm,
+        obt_ratio,
+        tbt_l2_norm,
+        tbt_diag_l2_norm,
+        tbt_ratio,
+        diagonal_dominance,
+    )
+
+
+def calc_hubbard_distance(ob_tensor, tb_tensor):
+    # ob_tensor is a 2D array
+    # tb_tensor is a 4D array
+    num_orbitals = ob_tensor.shape[0]
+    obt_diag = np.diagonal(ob_tensor)
+    chem_potential_plus_U = -1 * np.mean(obt_diag)
+    first_off_diag = np.diag(ob_tensor, k=1)
+    hopping_parameter = -1 * np.mean(first_off_diag)
+
+    on_site_interaction = np.einsum("pppp->", tb_tensor)
+    on_site_interaction /= num_orbitals
+    # on_site_interaction *= 0.5
+    # chem_potential += on_site_interaction/2
+
+    on_site_energy_matrix = -chem_potential_plus_U * np.eye(num_orbitals)
+    hopping_matrix = -1 * hopping_parameter * np.eye(num_orbitals, k=1)
+    hopping_matrix += -1 * hopping_parameter * np.eye(num_orbitals, k=-1)
+    hubbard_matrix = on_site_energy_matrix + hopping_matrix
+    l2_norm_diff_obt = np.linalg.norm(ob_tensor - hubbard_matrix, ord=2)
+
+    tb_tensor_copy = 0.5 * tb_tensor.copy()
+
+    # Just work with nn term, dropping n in order to get half-filling
+    for p in range(num_orbitals):
+        tb_tensor_copy[p, p, p, p] -= 0.5 * on_site_interaction
+
+    l2_norm_diff_tbt = np.linalg.norm(tb_tensor_copy.flat, ord=2)
+
+    l2_norm_diff_total = l2_norm_diff_obt + l2_norm_diff_tbt
+    return l2_norm_diff_obt, l2_norm_diff_tbt, l2_norm_diff_total
